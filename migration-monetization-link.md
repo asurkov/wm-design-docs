@@ -40,8 +40,8 @@ The `Monetization` runtime feature, off by default
 ([CL 8359628](https://chromium-review.googlesource.com/c/chromium/src/+/8359628)) — the first landing on
 the ladder ([migration-gating: The ladder](./migration-gating.md#the-ladder)). A json5 entry with no
 `base_feature_status`, and web-exposed — the link, `relList.supports`, the events, `onmonetization` — so
-it climbs every rung, so far the only Blink feature in the plan, and so the only one that can take the
-origin trial; its derived `blink::features::kMonetization` is the kill switch and the name the
+it climbs every rung, so far the only Blink feature in the plan; its derived
+`blink::features::kMonetization` is the kill switch and the name the
 `chrome://flags` entry enables. `renderer/platform` OWNERS review the entry, or any API owner by its
 per-file rule; the `onmonetization` CL, `core/dom` OWNERS. Every piece below is gated on it, and nothing
 else on Chromium has to land first. It ships only once all of them have landed; at opt-in a piece may lag
@@ -64,8 +64,8 @@ open on that, blocked on a stable spec reference. Spec-side work; nothing in Chr
 
 **Do** — add `monetization` to the link supported tokens under the runtime feature, in
 `RelList::ValidateTokenValue` (`rel_list.cc`). Keep the check out of the token set beside it: that set is a
-`DEFINE_STATIC_LOCAL`, fixed for the process, and the origin-trial rung makes the answer per execution
-context. The prototype puts the check inside that set. Nothing else on this surface has to land first.
+`DEFINE_STATIC_LOCAL`, fixed for the process, and Blink reads a Blink feature per execution context
+([migration-gating: Notes](./migration-gating.md#notes)). The prototype puts the check inside that set. Nothing else on this surface has to land first.
 [CL 8359696](https://chromium-review.googlesource.com/c/chromium/src/+/8359696), with the tests below.
 
 **Order** — this is what the extension stands down on, and one feature gates it and `load`/`error`
@@ -239,7 +239,7 @@ backlog.
 
 Step 3 adds the no-accumulation rule above, in the payment engine. Step 2's hand-over CL — the extension
 dropping `documentObserver` for `onStarted`/`onStopped` — waits on the restart
-(TBD migration-extension-api).
+([migration-extension-api](./migration-extension-api.md)).
 
 **Test** — per attribute, that the old session stops and a new one starts, seen as `load`/`error`
 re-firing. Unit coverage, from Step 1. A disabled link paying nothing, and re-enabling paying no backlog,

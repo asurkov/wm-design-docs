@@ -32,8 +32,8 @@ a feature does not reach or undo. The surface documents say what each feature's 
   either a Blink feature or a browser feature (below).
 - **Blink feature** — a feature declared in `runtime_enabled_features.json5`, the feature list of
   Blink, the renderer; Chromium calls it a Blink runtime feature. The entry gives two switches. The
-  **Blink flag** is read by Blink code, and can be on for a single page through an origin-trial
-  token (below). The generated `base::Feature`, `blink::features::kX`, is read by browser code.
+  **Blink flag** is read by Blink code. The generated `base::Feature`, `blink::features::kX`, is read
+  by browser code.
   Overriding the `base::Feature` also sets the Blink flag, never the reverse. `Monetization` is the
   plan's Blink feature; it gates Step 1, the monetization link, called the link for short
   ([Notes](#notes)).
@@ -44,15 +44,12 @@ a feature does not reach or undo. The surface documents say what each feature's 
   and 4) or the CSP directive (no step): each acts on what `Monetization` produces
   ([The features](#the-features)).
 - **web-exposed** — a change a web page can observe, such as a new API, element behaviour or event.
-- **Intent-to-Prototype, Intent-to-Experiment, Intent-to-Ship** — the blink-dev emails that gate
-  landing, trialling and shipping a web-exposed change; the first is an FYI, the others need
-  API-owner approval — three owners for shipping
+- **Intent-to-Prototype, Intent-to-Ship** — the blink-dev emails that gate landing and shipping a
+  web-exposed change; the first is an FYI, the second needs three API owners' approval
   ([Which rungs a feature takes](#which-rungs-a-feature-takes)).
-- **origin trial** — a period in which a registered origin can serve a token that turns a
-  web-exposed feature on for its own pages before the feature ships.
 - **rung, the ladder** — the audiences a feature can be enabled for, in order: nobody (off),
-  developers (developer opt-in), opt-in users (user opt-in), origins holding a trial token (origin
-  trial), everyone (shipped).
+  developers (developer opt-in), opt-in users (user opt-in), everyone (shipped). The plan takes no
+  origin trial ([migration-overview: Monetization link](./migration-overview.md#monetization-link)).
 - **`chrome://flags` entry** — a user-facing switch on Chrome's flags page; one entry can enable
   several features. The **experimental flag**,
   `chrome://flags/#enable-experimental-web-platform-features`, is Chromium's existing entry for
@@ -77,8 +74,8 @@ There are several features because the parts move on different schedules: the li
 in HTML before it ships, observe needs the extension API proposal, payments needs its spending
 behaviour specified, and the CSP directive needs spec text in CSP and Fetch
 ([migration-overview: Steps](./migration-overview.md#steps),
-[Risks](./migration-overview.md#risks)). With one feature for all of them, no part could reach the
-origin trial or ship before the slowest part could. With separate features, the link can ship while
+[Risks](./migration-overview.md#risks)). With one feature for all of them, no part could ship before
+the slowest part could. With separate features, the link can ship while
 the CSP directive still waits for its Intent-to-Ship
 (TBD migration-csp: Order). Separate features also let the extension hand
 its jobs over one at a time.
@@ -104,10 +101,9 @@ site's `monetization-src` policy can block. Each can be switched on or off by it
 Code can read more than one feature, and the plan uses that to tie observe and payments to
 `Monetization` in code. Each member of `chrome.monetization` exists only while `Monetization`'s
 `base::Feature` is on as well as the feature that gates it, observe or payments, and
-`chrome://monetization` only while that `base::Feature` and payments are on ([Notes](#notes)). Before
-the origin trial turns that `base::Feature` on by default, the probes for observe and payments
-therefore cannot answer yes while Chrome leaves `<link rel=monetization>` to the extension;
-[Origin trial](#origin-trial) says what keeps that true while the trial runs.
+`chrome://monetization` only while that `base::Feature` and payments are on ([Notes](#notes)). The
+probes for observe and payments therefore cannot answer yes while Chrome leaves
+`<link rel=monetization>` to the extension.
 
 A dependent feature moves to a rung only after `Monetization` has reached it. This order is the
 plan's choice, not a requirement of Chromium. If the link stalls, the plan can consider shipping
@@ -126,15 +122,14 @@ Pieces of one feature land one CL at a time, and the opt-in rungs wait only for 
 probe covers ([Feature detection](#feature-detection-in-the-extension)). At developer and user opt-in
 any other piece still in review is absent, and for extension users the extension keeps doing
 that job until its probe shows Chrome doing it. `Monetization`, for example, can reach developer and
-user opt-in before Chrome defines `onmonetization`. The origin trial and shipping wait for every
-piece: both reach visitors who did not opt in, and for those without the extension nothing would
-cover a missing one.
+user opt-in before Chrome defines `onmonetization`. Shipping waits for every piece: it reaches
+visitors who did not opt in, and for those without the extension nothing would cover a missing one.
 
 A piece of `Monetization` that cannot ship with the rest moves to a Blink feature of its own, not a
 dependent feature: a json5 entry and one check where the piece is gated. The candidates are the
 Permissions API name, if its spec text is not written by the link's Intent-to-Ship, and
 `onmonetization`, if API owners object at Intent-to-Ship to a handler that appears on every element,
-document and window ([migration-permission: The process][permission-process],
+document and window (TBD migration-permission: The process,
 [migration-monetization-link: onmonetization][link-onmonetization]).
 
 ---
@@ -154,7 +149,6 @@ users who turn the entry on.
 | Off | nothing by default; `--enable-features` on the command line | the json5 entry with no `status`; a browser feature with `FEATURE_DISABLED_BY_DEFAULT` ([Off](#off)) |
 | Developer opt-in | the experimental flag | `status: "experimental"` on the json5 entry, plus a `content_switch_dependent_feature_overrides.cc` line if browser code checks the feature; no `about_flags.cc` entry of its own ([Developer opt-in](#developer-opt-in)) |
 | User opt-in | the opt-in entry | the feature's name on the opt-in entry's list, in `about_flags.cc` ([User opt-in](#user-opt-in)) |
-| Origin trial | per-origin tokens, once an Intent-to-Experiment is approved | `origin_trial_feature_name`, `base_feature_status: "enabled"` and `copied_from_base_feature_if: "overridden"` on the entry, still `experimental` ([Origin trial](#origin-trial)) |
 | Shipped | on everywhere; for a web-exposed feature, once an Intent-to-Ship is approved | `status: "stable"`, or `FEATURE_ENABLED_BY_DEFAULT` on a browser feature, by waterfall; the `base::Feature` stays as kill switch until a cleanup CL removes the feature's declaration and its checks ([Which rungs a feature takes](#which-rungs-a-feature-takes)) |
 
 ### Off
@@ -165,15 +159,14 @@ landing waits on OWNERS review alone, since the code lands disabled: the CSP dir
 wait for its Intent-to-Ship (TBD migration-csp: Order). An extension API is the
 exception: Chromium approves an API before it is implemented, so the `chrome.monetization` code of
 observe and payments waits on the API proposal even to land
-(TBD migration-extension-api: Approval).
+([migration-extension-api: Approval](./migration-extension-api.md#approval)).
 
 ### Developer opt-in
 
 This rung covers `Monetization` alone. Setting `status: "experimental"` on its json5 entry, with one
 more line described below, makes it available to web developers who keep the experimental flag on.
-They can try Chrome's link handling, `relList.supports`, `load` and `error`, before an origin trial
-exists. The origin trial keeps that status, so the feature passes through this rung on its way to
-the trial. Chrome fires no `MonetizationEvent` and pays nothing here, so full Web Monetization still
+They can try Chrome's link handling, `relList.supports`, `load` and `error`, before it ships. Chrome
+fires no `MonetizationEvent` and pays nothing here, so full Web Monetization still
 needs the extension, which keeps paying and firing the events. An extension user who keeps the flag
 on gets that mix here, ahead of user opt-in: Chrome handles the link, and the extension does the
 rest.
@@ -211,7 +204,7 @@ system's list of who may hold which permission, grants it per release channel, a
 property of the build, not a setting. The prototype grants the permission on the `trunk` channel,
 which only a developer's own build reports: no released Chrome does, Canary included. On any other
 channel it grants it only with `--enable-experimental-extension-apis`
-(TBD migration-extension-api: Prerequisites).
+([migration-extension-api: Prerequisites](./migration-extension-api.md#prerequisites)).
 A CL that grants it on `stable` without the switch has to land before either feature reaches this
 rung. The entry alone then turns them on for users ([Notes](#notes)).
 
@@ -229,42 +222,15 @@ A setting would expose an unshipped web-exposed feature to every user. The choic
 expiry above, and a kill switch that does not reach a user who enabled the entry
 ([What disabling does not reach or undo](#what-disabling-does-not-reach-or-undo)).
 
-### Origin trial
-
-An origin trial turns `Monetization` on for the pages of one origin, through a token that the origin
-serves. A token can set only the Blink flag, because only the Blink flag can be on for a single
-page. Browser code never sees a token, so `kMonetization`, the `base::Feature` that browser code
-checks, is on by default in every Chrome from this rung. Otherwise the `MonetizationService` binder
-would refuse the pages of a trial origin ([Notes](#notes)). On by default means ready, not active:
-the service acts only when a page whose Blink flag is on asks it to.
-
-Three fields on the json5 entry do this. `origin_trial_feature_name` ties the Blink flag to the
-token. `base_feature_status: "enabled"` makes the `base::Feature` on by default.
-`copied_from_base_feature_if: "overridden"` keeps that default out of the Blink flag and still
-copies an explicit override, so `--enable-features`, the opt-in entry and the Finch kill switch keep
-working during the trial.
-
-The trial covers the link alone. Observe and payments stay at user opt-in while it runs. They are on
-there for a visitor who enabled the opt-in entry, and the entry turns `Monetization` on for that
-visitor on every origin. They cannot ship during the trial. Shipped, each would be on in every
-Chrome, and its check on `Monetization` reads `kMonetization`, which is on by default from this
-rung. Its probe would then answer yes everywhere, and the extension would stop watching links, or
-paying, on origins outside the trial, where Chrome does not handle the link.
-
-On a trial origin every visitor gets Chrome's link handling. Who pays depends on the visitor. Chrome
-pays for a visitor who enabled the entry, once payments is at user opt-in. Otherwise the extension
-pays, if the visitor has it installed. If not, nobody pays.
-
 ### Which rungs a feature takes
 
 Two properties decide a feature's path: how it is declared, and whether it is web-exposed. The first
 decides which rungs the feature has, the second how it ships.
 
-The origin trial works only through a json5 entry. Developer opt-in works through a json5 entry as
-well. A browser feature could also get it, through the list of `base::Feature`s that the
-experimental flag turns on, but the plan puts only `Monetization`'s on that list
-([Developer opt-in](#developer-opt-in)). So `Monetization` has all five rungs, and each dependent
-feature has three: off, user opt-in and shipped.
+Developer opt-in works through a json5 entry. A browser feature could also get it, through the list
+of `base::Feature`s that the experimental flag turns on, but the plan puts only `Monetization`'s on
+that list ([Developer opt-in](#developer-opt-in)). So `Monetization` has all four rungs, and each
+dependent feature has three: off, user opt-in and shipped.
 
 Whether the feature is web-exposed decides how the last rung, shipped, is reached. A web-exposed
 feature needs an approved Intent-to-Ship and then ships by waterfall. Chromium discourages a Finch
@@ -276,7 +242,7 @@ The two properties are independent, because web exposure is about what enabling 
 feature is declared. The CSP directive is the example. The plan declares it as a plain
 `base::Feature` in the network namespace, which the network service and Blink both read, and gives
 it no json5 entry. It therefore has three rungs. A json5 entry driven by that feature would give it
-the other two, and the plan has none so far ([Notes](#notes)). But enabling it changes how a page's
+developer opt-in, and the plan has none so far ([Notes](#notes)). But enabling it changes how a page's
 Content-Security-Policy header is parsed, which a page can observe. Its shipped rung therefore needs
 an Intent and a waterfall, as `Monetization`'s does.
 
@@ -292,9 +258,9 @@ users a gradual start.
 
 | Feature | Declared as | Rungs | Its gating, in its surface |
 |---|---|---|---|
-| `Monetization` (Step 1) | Blink feature | off, developer opt-in, user opt-in, origin trial, shipped | [migration-monetization-link: Prerequisites](./migration-monetization-link.md#prerequisites) |
-| observe (Step 2) | browser feature, read via `feature_flag` ([Notes](#notes)) | off, user opt-in, shipped | TBD migration-extension-api: Members; the site-settings gates read it: [migration-permission: The gating work it owes][permission-gating] |
-| payments (Steps 3 and 4) | browser feature, read via `feature_flag` ([Notes](#notes)) | off, user opt-in, shipped | TBD migration-payment-engine: The CLs, TBD migration-extension-api: Members, TBD migration-user-control: Where things stand |
+| `Monetization` (Step 1) | Blink feature | off, developer opt-in, user opt-in, shipped | [migration-monetization-link: Prerequisites](./migration-monetization-link.md#prerequisites) |
+| observe (Step 2) | browser feature, read via `feature_flag` ([Notes](#notes)) | off, user opt-in, shipped | [migration-extension-api: Observing sessions](./migration-extension-api.md#observing-sessions); the site-settings gates read it: TBD migration-permission: The gating work it owes |
+| payments (Steps 3 and 4) | browser feature, read via `feature_flag` ([Notes](#notes)) | off, user opt-in, shipped | TBD migration-payment-engine: The CLs, [migration-extension-api: Native payments](./migration-extension-api.md#native-payments), TBD migration-user-control: Where things stand |
 | the CSP directive (no step) | browser feature | off, user opt-in, shipped | TBD migration-csp: Order |
 
 ---
@@ -318,7 +284,7 @@ show this. The extension stops firing them when `relList.supports('monetization'
 did.
 
 Detection runs one way: the extension probes Chrome, and Chrome never checks for the extension
-([migration-extension-api: Activation][api-activation]). A version of the extension without the
+([migration-extension-api: Payment events](./migration-extension-api.md#payment-events)). A version of the extension without the
 probes keeps doing every job beside Chrome. The version that has them is therefore published before
 a feature is enabled ([migration-overview: Risks](./migration-overview.md#risks)).
 
@@ -337,35 +303,30 @@ for `Monetization`, the experimental flag ([Notes](#notes)). For a user who enab
 entry, only a Chrome update switches the feature off, by taking it off the entry's list or by
 deleting the entry.
 
-The kill switch therefore matters only from the rung at which a feature is on by default. At the
-opt-in rungs every user who has the feature turned it on with a switch, so the kill switch reaches
-nobody there. The first rung with the feature on by default is the origin trial for `Monetization`,
-and shipped for the others. Once a feature has shipped it has left the entry's list
+The kill switch therefore matters only once a feature is on by default, which is when it ships. At
+the opt-in rungs every user who has the feature turned it on with a switch, so the kill switch
+reaches nobody there. Once a feature has shipped it has left the entry's list
 ([User opt-in](#user-opt-in)), and the kill switch reaches everyone who has not turned the feature
 on with a switch.
 
 Where disabling reaches a user, it stops the gated code and leaves that code's state behind: stored
 credentials, and a live Open Payments grant. What to do with that state is the payment engine's
 question
-([migration-payment-engine: What a disabled feature leaves behind][payment-engine-disabled]).
+(TBD migration-payment-engine: What a disabled feature leaves behind).
 
 ---
 
 # Notes
 
-Any code reads a `base::Feature` with `base::FeatureList::IsEnabled`, which for a Blink feature says
-only that the feature is allowed to run, not whether a given page has it on. Blink code reads a
-Blink feature with `RuntimeEnabledFeatures::XEnabled(context)`, or with `[RuntimeEnabled=X]` in IDL,
-and never with `IsEnabled`. Only the Blink flag sees origin-trial tokens, and a `base::Feature` sees
-the experimental flag only if it is on the list described below
-([Developer opt-in](#developer-opt-in), [RuntimeEnabledFeatures.md][rte-features]).
+Any code reads a `base::Feature` with `base::FeatureList::IsEnabled`. Blink code reads a Blink
+feature with `RuntimeEnabledFeatures::XEnabled(context)`, or with `[RuntimeEnabled=X]` in IDL, and
+never with `IsEnabled`: a `base::Feature` sees the experimental flag only if it is on the list
+described below ([Developer opt-in](#developer-opt-in), [RuntimeEnabledFeatures.md][rte-features]).
 
 By default the Blink flag of a Blink feature takes the state of its `base::Feature` whenever that
 `base::Feature` is enabled or overridden. That is how `--enable-features`, `chrome://flags` entries
-and Finch reach Blink. From the origin-trial rung, `copied_from_base_feature_if: "overridden"`
-narrows the copy to an override ([Origin trial](#origin-trial),
-[RuntimeEnabledFeatures.md][rte-origin-trial]). `blink::features::kMonetization` is therefore
-`Monetization`'s kill switch and the name the opt-in entry enables.
+and Finch reach Blink. `blink::features::kMonetization` is therefore `Monetization`'s kill switch and
+the name the opt-in entry enables.
 
 `content/public/common/content_switch_dependent_feature_overrides.cc` is the list of
 `base::Feature`s that command-line switches override. Every entry under the experimental flag turns
@@ -402,7 +363,7 @@ and permission checks (`simple_feature.cc`), and if the feature is disabled the 
 name missing from `kFeatureFlags[]` is a `CHECK` when the entry is evaluated, so the
 `kFeatureFlags[]` line lands no later than the first entry that names it. The browser also checks
 observe where it dispatches `onStarted` and `onStopped`, at one chokepoint
-(TBD migration-extension-api: Members).
+([migration-extension-api: Sessions](./migration-extension-api.md#sessions)).
 
 A `feature_flag` names one feature, so the tie to `Monetization` is a second condition on the same
 entries: `requires_delegated_availability_check`, with a handler that reads
@@ -411,8 +372,7 @@ Controlled Frame's handler reads its own Blink feature in the same way
 (`chrome/common/controlled_frame/controlled_frame.cc`). The handler runs after the `feature_flag`
 lookup (`simple_feature.cc`), so the API is present only while both features are on.
 `chrome://monetization` is gated the same way: `MonetizationUIConfig::IsWebUIEnabled` reads the
-payments feature and `blink::features::kMonetization`. Both checks read the `base::Feature`, which a
-page's origin-trial token never changes ([Origin trial](#origin-trial)).
+payments feature and `blink::features::kMonetization`.
 
 One check serves two features: `MonetizationServiceImpl::OnPaymentRecorded` reads observe for a
 payment the extension reported and payments for one Chrome made, before `OnPayment` reaches the
@@ -434,15 +394,10 @@ why any committer can approve the entry's CL.
 [cl-4930834]: https://chromium-review.googlesource.com/c/chromium/src/+/4930834
 [step-1]: ./migration-overview.md#step-1--monetization-link
 [first-shippable]: ./migration-overview.md#the-first-shippable-state
-[permission-process]: ./migration-permission.md#the-process-and-where-it-puts-the-surface-boundary
 [link-onmonetization]: ./migration-monetization-link.md#onmonetization
-[api-activation]: ./migration-extension-api.md#activation--by-use-not-by-detection
 [chromestatus]: https://chromestatus.com/feature/4917148755689472
 [flag-expiry]: https://chromium.googlesource.com/chromium/src/+/main/docs/flag_expiry.md#Do-Not-Depend-On-Flags
 [flag-expiry-process]: https://chromium.googlesource.com/chromium/src/+/main/docs/flag_expiry.md#The-Process
 [flag-guarding]: https://chromium.googlesource.com/chromium/src/+/main/docs/flag_guarding_guidelines.md#Prefer-waterfall-rollout-for-platform-changes
-[permission-gating]: ./migration-permission.md#the-gating-work-it-owes
-[payment-engine-disabled]: ./migration-payment-engine.md#what-a-disabled-feature-leaves-behind
 [rte-features]: https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/platform/RuntimeEnabledFeatures.md#Blink-Features-and-Chromium-Features
-[rte-origin-trial]: https://chromium.googlesource.com/chromium/src/+/main/third_party/blink/renderer/platform/RuntimeEnabledFeatures.md#Origin-Trial-Features-and-base::Feature
 [link-rellist]: ./migration-monetization-link.md#rellistsupportsmonetization

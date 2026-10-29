@@ -36,10 +36,11 @@ surfaces at once. Each entry names what the surface covers and who signs it off.
 - **What:** `<link rel=monetization>` handling and its events, plus the Permissions-Policy
   `monetization` token — the site's own declaration of which frames may use monetization at all, checked
   before any user grant is consulted.
-- **Approval:** Blink API owners, 3 LGTMs — the full Blink launch: Intent-to-Prototype, Experiment,
-  Ship, plus TAG review, a spec, WPT, and cross-vendor signals, and the ChromeStatus Privacy and
-  Security gates (Chrome Privacy, WP Security), reviewed at Experiment and again at Ship before the
-  owners look. Irreversible once shipped, as anything Blink ships is.
+- **Approval:** Blink API owners, 3 LGTMs — the full Blink launch: Intent-to-Prototype and Ship, plus
+  TAG review, a spec, WPT, and cross-vendor signals, and the ChromeStatus Privacy and Security gates
+  (Chrome Privacy, WP Security), reviewed at Ship before the owners look. No origin trial: the
+  extension's usage data answers the experimentation questions at Ship. Irreversible once shipped, as
+  anything Blink ships is.
 - **Detail:** [migration-monetization-link](./migration-monetization-link.md).
 
 ## CSP directive
@@ -60,7 +61,7 @@ surfaces at once. Each entry names what the surface covers and who signs it off.
   vendors, then a launch bug through Security, Privacy, Legal, UX, the Extensions team and DevRel.
   Cheaper than a Blink launch and retractable, with no spec, TAG or WPT, but it needs cross-vendor
   agreement and is more than an `OWNERS` review.
-- **Detail:** TBD migration-extension-api.
+- **Detail:** [migration-extension-api](./migration-extension-api.md).
 
 ## Permission
 
@@ -80,7 +81,7 @@ surfaces at once. Each entry names what the surface covers and who signs it off.
 - **What:** everything that moves money — keys, credentials, the Open Payments client, wallet
   connection, and the paying loop. The API that drives it is the extension API surface. Grant
   management (top-up, one-time grant vs recurring-only) is the same control open as `addFunds`
-  (TBD migration-extension-api).
+  ([migration-extension-api](./migration-extension-api.md)).
 - **Approval:** internal Chrome code, but not an ordinary owners review — its Mojo interface is pinned
   to IPC security owners, so the usual chain cannot approve it alone.
 - **Detail:** TBD migration-payment-engine.
@@ -102,8 +103,7 @@ before it can reach users, and since each moves on its own schedule the steps ov
 opt-in while the next is still merging CLs. Two rungs carry the plan's claims. User opt-in is where
 existing WM extension users move onto the native path, ahead of any wider rollout, through one
 `chrome://flags` entry for the WM features at opt-in — not internal testing. Shipped is Intent-to-Ship
-for anything web-exposed: nothing web-exposed reaches stable users ahead of its approval, and the
-monetization link takes an origin trial first so sites can try it.
+for anything web-exposed: nothing web-exposed reaches stable users ahead of its approval.
 
 Enabling a flag is necessary, not sufficient. Who may *call* `chrome.monetization` is gated separately, by
 channel in `_permission_features.json` and by context in `_api_features.json`, and nothing happens on any
@@ -140,7 +140,7 @@ Chrome serves the web-exposed API, and the extension stops shimming it: `relList
 
 It goes first and finishes last. This is the only step whose approval reaches outside Google, so its clock is the longest in the plan. The **Intent-to-Prototype** is filed; nothing after it has moved, and the entry records no TAG review, no signal from Firefox or WebKit, and no WPT. Little depends on it — Step 2 waits only on the link restart — so it runs alongside the others rather than blocking them.
 
-It does not finish the surface. `MonetizationEvent` ships here as an interface that fires nothing, since Chrome cannot pay until Step 3 — and it has to ship constructible, because until then the extension goes on firing those events itself. The link's lifecycle is the one piece with no complete spec text to point at, which a reviewer may raise; [#724](https://github.com/WICG/webmonetization/pull/724) is in review for [#698](https://github.com/WICG/webmonetization/issues/698).
+It does not finish the surface. `MonetizationEvent` ships here as an interface that fires nothing until Step 2, when the extension starts reporting its payments to Chrome — and it has to ship constructible, because until then the extension goes on firing those events itself. The link's lifecycle is the one piece with no complete spec text to point at, which a reviewer may raise; [#724](https://github.com/WICG/webmonetization/pull/724) is in review for [#698](https://github.com/WICG/webmonetization/issues/698).
 
 `onmonetization` belongs to this step and ships under `Monetization` and its Intent, as a CL of its own. Its spec IDL landed in [PR 697](https://github.com/WICG/webmonetization/pull/697); Chromium has neither handler form, so what remains is implementation.
 
@@ -169,8 +169,8 @@ Chrome takes over everything that touches money. Wallet management first, then t
 **Wallet management.** Keys, connection, and the Open Payments grant.
 
 - **Wallet methods.** `chrome.monetization` gains `connectWallet`, `finalizeWalletConnection`,
-  `disconnectWallet` — WebUI-only today. `getWallet`, already reachable from extensions, arrives
-  with observe. Who may call them is the plan's open decision, binding here, not at Step 4: only
+  `disconnectWallet` — WebUI-only today. `getWallet` comes with them and
+  reaches extensions too. Who may call them is the plan's open decision, binding here, not at Step 4: only
   `chrome://monetization`, or the extension API too, probably behind a user activation requirement.
 - **Grants.** Top-up, one-time grant, and budget change ride that same decision
   (TBD migration-payment-engine: Grants).
@@ -231,7 +231,7 @@ call is transitional — allowlisted to the WM extension, not public, since any 
 have Chrome tell a page that money moved — and goes in payments' cleanup CL. The allowlist is one
 hashed-ID line in `_api_features.json`; the cost is the extension's: an unpacked build shares the store
 ID only with the package's `key` in its manifest
-(TBD migration-extension-api: reportPayment and transitional members).
+([migration-extension-api: Payment reports](./migration-extension-api.md#payment-reports)).
 After it the extension has no job on the page — Chrome handles the link, tracks sessions and fires the
 events — so the content script and the all-sites host permission go, and with them the install warning
 for access to every site. That is one manifest change, the same for every user: the Chrome build makes
@@ -284,7 +284,7 @@ The Web Store paces the rollout, nobody has set a threshold for how many install
 measures it — users who never update are a tail with no end. The rollout is silent only while the
 yielding version adds no permission warning: if the `monetization` permission gets one, the update
 switches the extension off until each user accepts
-(TBD migration-extension-api: Approval).
+([migration-extension-api: Approval](./migration-extension-api.md#approval)).
 
 # Out of scope
 

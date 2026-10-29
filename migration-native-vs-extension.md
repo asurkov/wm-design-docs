@@ -37,9 +37,10 @@ prototype exposes both, the extension polyfills both.
   the yielding version still has to reach users.
 - **The `onmonetization` event handler**, which lets a page listen without `addEventListener` — as an
   inline `onmonetization="…"` attribute and as an IDL property. Build both; specified, unimplemented.
-- **A `monetization` entry in `chrome.contentSettings`**, the conventional way an extension reads a
-  content setting, so the popup can see a site Chrome has blocked. Build it
-  (TBD migration-permission).
+- **A `monetization` entry in `chrome.contentSettings`**, the conventional way an extension reads and
+  sets a content setting, so the popup can show and change a site's permission. Either build it with
+  payments, or agree the popup links to Site Settings instead
+  ([migration-extension-api: Site permission](./migration-extension-api.md#site-permission)).
 - **Automated key registration** — registering the browser's public key with the user's wallet without
   the user pasting it by hand. Either build it, or agree the extension keeps driving its own `keyAutoAdd`
   flow.
@@ -62,7 +63,7 @@ prototype exposes both, the extension polyfills both.
   API, gesture-gated — the extension asks, the engine sends from the grant already approved; a WebUI
   form follows only if the page finds a place for one
   ([Workshop I notes](https://docs.google.com/document/d/10ZCMIYPgnwujes7Wb-v2yB9RLekvBYwmRULzl9NG0iE/edit);
-  TBD migration-extension-api: The controls;
+  [migration-extension-api: Controls](./migration-extension-api.md#controls);
   TBD migration-payment-engine: Where the paying loop lives).
   Until `pay` exists, the extension disables the popup form once `if (chrome.monetization.onPayment)`
   is true.
@@ -70,7 +71,7 @@ prototype exposes both, the extension polyfills both.
   funds, `addFunds` creates another grant on the same key — recurring replaces recurring, one-time
   can sit beside recurring. Not a third way to pay a site. The prototype is
   `connectWallet(..., renewMonthly)` only. Who drives top-up — WebUI or `addFunds` under the control
-  open — is not settled (TBD migration-extension-api).
+  open — is not settled ([migration-extension-api](./migration-extension-api.md)).
 - **User-set rate after connect.** The extension edits `rateOfPay` in the popup; defaults come from
   fetched tables (`BUDGET_RECOMMENDATIONS_URL`, `EXCHANGE_RATES_URL`). The prototype sets budget at
   connect only (`monetization_connect_wallet_dialog.ts`: default `'10'`) and has no post-connect rate
@@ -219,7 +220,7 @@ it from shadowing Chrome's accessor ([migration-monetization-link](./migration-m
 
 `onPayment` is checked for existence, not waited on: the extension's loop can send before Chrome's first
 event, and the owner is chosen once, at session start
-(TBD migration-extension-api: Activation).
+([migration-extension-api: Payment events](./migration-extension-api.md#payment-events)).
 It stays gated on the payments feature and absent at observe — shipping it alongside
 `onStarted`/`onStopped` would make the check true while Chrome is still not paying.
 
@@ -253,6 +254,9 @@ section above. Wallet connect is Step 3, not observe.
 - Still pay. A session starting is not money moving. Report each payment through
   `chrome.monetization.reportPayment` and stop dispatching `MonetizationEvent` from the polyfill: Chrome
   fires it.
+- Pause and resume a session's timer on `chrome.monetization.onPaused` / `onResumed`, in place of the
+  content script's visibility and focus signals. Both are proposed
+  ([#762](https://github.com/WICG/webmonetization/issues/762)).
 - With nothing left page-side, drop the static content script and the all-sites host permissions — in
   the Chrome build, which `processManifestPlugin` already emits with a manifest of its own. A manifest
   cannot vary per user, and required hosts cannot be dropped at runtime (`permissions.remove` refuses
